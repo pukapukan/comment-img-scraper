@@ -8,7 +8,7 @@
     "debug": "npm run build && npm run watch-debug",
     "lint": "tsc --noEmit && eslint \"**/*.{ts}\" --quiet --fix",
     "serve-debug": "nodemon --inspect dist/server.js",
-    "serve": "node dist/index.js",
+    "serve": "npm run build-ts && node dist/index.js",
     "start": "npm run serve",
     "test": "jest --forceExit --coverage --verbose",
     "watch-debug": "concurrently -k -p \"[{name}]\" -n \"Sass,TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"npm run watch-sass\" \"npm run watch-ts\" \"npm run serve-debug\"",
@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.14.182",
+    "axios": "^0.27.2",
     "ts-standard": "^11.0.0",
     "typescript": "^4.6.4"
   },
