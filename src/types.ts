@@ -11,8 +11,21 @@ export interface CommentsAjaxResponse {
     allow_reply: number
 }
 
+export interface Comment {
+    author: string
+    created: string
+    id: string
+    imgUrl: string
+    isDeleted: string
+    parentId: string
+    // should get populated once image has been downloaded
+    filename: string | undefined
+}
+
 export interface PostingData {
+    id: string
     title: string
     author: string
-    posted: string
+    postedDate: string
+    comments: Comment[]
 }
