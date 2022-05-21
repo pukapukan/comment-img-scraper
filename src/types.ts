@@ -22,10 +22,9 @@ export interface Comment {
     filename: string | undefined
 }
 
-export interface PostingData {
+export interface PostData {
     id: string
     title: string
     author: string
     postedDate: string
-    comments: Comment[]
 }

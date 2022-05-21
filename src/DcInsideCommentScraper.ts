@@ -1,8 +1,10 @@
 import _ from "lodash";
 import puppeteer, {Browser, Page} from "puppeteer";
+import json2csv from 'json2csv'
 
-import {Comment, CommentsAjaxResponse, PostingData, ScraperOptions} from "./types";
+import {Comment, CommentsAjaxResponse, PostData, ScraperOptions} from "./types";
 import saveImage from "./saveImage";
+import fs from "fs";
 
 const CommentImgSrcRegex = /data-src="(?<animated>\S*)"|<img class="written_dccon" src="(?<static>\S*)"/g
 
@@ -10,28 +12,35 @@ export default class DcInsideCommentScraper {
     private readonly board: string;
     private readonly getBrowser: () => Promise<Browser>;
     private readonly targetCount: number;
+    private readonly pageUrlGenerator: AsyncIterableIterator<string>;
+    private readonly startDate: Date;
     private count: number;
     private page: number;
-    private pageUrlGenerator: AsyncIterableIterator<string>;
 
     constructor(options: ScraperOptions) {
         this.board = `https://gall.dcinside.com/board/lists/?id=${options.board}`;
         this.getBrowser = _.once(() => puppeteer.launch());
         this.targetCount = options.targetCount;
+        this.startDate = new Date()
         this.count = 0;
         this.page = 1;
         this.pageUrlGenerator = this.postUrlGenerator()
     }
 
     async execute() {
+        const postDataList: PostData[] = []
         while (!this.shouldStop()) {
             const { value: pageUrl, done } = await this.pageUrlGenerator.next()
             if (!pageUrl || done) {
                 break
             }
-            await this.processPost(pageUrl)
+            postDataList.push(await this.processPost(pageUrl))
         }
         await this.close();
+
+        const writeStream = fs.createWriteStream(`output/${this.startDate.toISOString()}/posts.csv`)
+        writeStream.write(json2csv.parse(postDataList))
+        writeStream.close()
     }
 
     private async close(): Promise<void> {
@@ -63,13 +72,13 @@ export default class DcInsideCommentScraper {
         await page.goto(`${this.board}&page=${this.page}`)
         const list = await page.waitForSelector('.gall_list')
         const urls = await list.$$eval(
-            'tr[data-no] a[view-msg]',
+            'tr.us-post[data-no] a[view-msg]',
             (elements) => elements.flatMap((e:HTMLAnchorElement) => e.href));
         await page.close()
         return urls
     }
 
-    private async processPost(pageUrl: string): Promise<PostingData> {
+    private async processPost(pageUrl: string): Promise<PostData> {
         const page = await this.newPage()
         await page.goto(pageUrl)
 
@@ -84,11 +93,17 @@ export default class DcInsideCommentScraper {
 
         for (const c of comments) {
             if (c.imgUrl) {
-                c.filename = await saveImage(`output/img/${id}`, c.id,  c.imgUrl) // TODO download multiple images in parallel (max TK)
+                c.filename = await saveImage(`output/${this.startDate.toISOString()}/${id}`, c.id,  c.imgUrl) // TODO download multiple images in parallel (max TK)
             }
         }
         await page.close()
-        return { id, title, author, postedDate, comments }
+        const postData: PostData = { id, title, author, postedDate }
+
+        const writeStream = fs.createWriteStream(`output/${this.startDate.toISOString()}/${id}_comments.csv`)
+        writeStream.write(json2csv.parse(comments))
+        writeStream.close()
+
+        return postData
     }
 
     private async fetchComments(page: Page): Promise<Comment[]> {
